@@ -1,0 +1,363 @@
+{
+  "name": "Discord Finance Bot - n8n Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/catat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "catat-webhook",
+      "name": "Catat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 200],
+      "webhookId": "catat-webhook-id"
+    },
+    {
+      "parameters": {
+        "documentId": "={{ $env.GOOGLE_SHEET_ID }}",
+        "sheetName": "Keuangan",
+        "options": {
+          "cellFormat": "USER_ENTERED",
+          "useAppend": true
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Tipe": "={{ $json.tipe }}",
+            "Jumlah": "={{ $json.jumlah }}",
+            "Keterangan": "={{ $json.keterangan }}",
+            "Kategori": "={{ $json.kategori }}",
+            "User": "={{ $json.user }}",
+            "Tanggal": "={{ $json.tanggal }}"
+          }
+        }
+      },
+      "id": "append-sheet",
+      "name": "Append to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [400, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Transaksi berhasil dicatat\" } }}"
+      },
+      "id": "catat-response",
+      "name": "Catat Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [600, 200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/saldo",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "saldo-webhook",
+      "name": "Saldo Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 400],
+      "webhookId": "saldo-webhook-id"
+    },
+    {
+      "parameters": {
+        "documentId": "={{ $env.GOOGLE_SHEET_ID }}",
+        "sheetName": "Keuangan",
+        "options": {
+          "range": "A:F"
+        }
+      },
+      "id": "read-sheet-saldo",
+      "name": "Read Sheet for Saldo",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [400, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const userId = $input.first().json.user;\nconst data = $input.all();\n\nlet totalMasuk = 0;\nlet totalKeluar = 0;\n\nfor (const item of data) {\n  if (item.json.User === userId) {\n    if (item.json.Tipe === 'Uang Masuk') {\n      totalMasuk += parseFloat(item.json.Jumlah) || 0;\n    } else if (item.json.Tipe === 'Uang Keluar') {\n      totalKeluar += parseFloat(item.json.Jumlah) || 0;\n    }\n  }\n}\n\nconst saldo = totalMasuk - totalKeluar;\n\nreturn {\n  totalMasuk,\n  totalKeluar,\n  saldo,\n  success: true\n};"
+      },
+      "id": "calculate-saldo",
+      "name": "Calculate Saldo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [600, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "saldo-response",
+      "name": "Saldo Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [800, 400]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/riwayat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "riwayat-webhook",
+      "name": "Riwayat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 600],
+      "webhookId": "riwayat-webhook-id"
+    },
+    {
+      "parameters": {
+        "documentId": "={{ $env.GOOGLE_SHEET_ID }}",
+        "sheetName": "Keuangan",
+        "options": {
+          "range": "A:F"
+        }
+      },
+      "id": "read-sheet-riwayat",
+      "name": "Read Sheet for Riwayat",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [400, 600],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const userId = $input.first().json.user;\nconst limit = $input.first().json.limit || 10;\nconst data = $input.all();\n\nconst userTransactions = data\n  .filter(item => item.json.User === userId)\n  .sort((a, b) => new Date(b.json.Tanggal) - new Date(a.json.Tanggal))\n  .slice(0, limit);\n\nreturn {\n  transactions: userTransactions.map(item => item.json),\n  success: true\n};"
+      },
+      "id": "filter-riwayat",
+      "name": "Filter Riwayat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [600, 600]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "riwayat-response",
+      "name": "Riwayat Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [800, 600]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/hapus",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "hapus-webhook",
+      "name": "Hapus Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 800],
+      "webhookId": "hapus-webhook-id"
+    },
+    {
+      "parameters": {
+        "documentId": "={{ $env.GOOGLE_SHEET_ID }}",
+        "sheetName": "Keuangan",
+        "options": {
+          "range": "A:F"
+        }
+      },
+      "id": "read-sheet-hapus",
+      "name": "Read Sheet for Hapus",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [400, 800],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": "={{ $env.GOOGLE_SHEET_ID }}",
+        "sheetName": "Keuangan",
+        "options": {
+          "range": "A{{ $json.rowNumber }}:F{{ $json.rowNumber }}"
+        }
+      },
+      "id": "delete-row",
+      "name": "Delete Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [600, 800],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Transaksi berhasil dihapus\" } }}"
+      },
+      "id": "hapus-response",
+      "name": "Hapus Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [800, 800]
+    }
+  ],
+  "connections": {
+    "Catat Webhook": {
+      "main": [
+        [
+          {
+            "node": "Append to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Catat Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Saldo Webhook": {
+      "main": [
+        [
+          {
+            "node": "Read Sheet for Saldo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sheet for Saldo": {
+      "main": [
+        [
+          {
+            "node": "Calculate Saldo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Saldo": {
+      "main": [
+        [
+          {
+            "node": "Saldo Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Riwayat Webhook": {
+      "main": [
+        [
+          {
+            "node": "Read Sheet for Riwayat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sheet for Riwayat": {
+      "main": [
+        [
+          {
+            "node": "Filter Riwayat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Riwayat": {
+      "main": [
+        [
+          {
+            "node": "Riwayat Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hapus Webhook": {
+      "main": [
+        [
+          {
+            "node": "Read Sheet for Hapus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sheet for Hapus": {
+      "main": [
+        [
+          {
+            "node": "Delete Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Row": {
+      "main": [
+        [
+          {
+            "node": "Hapus Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
