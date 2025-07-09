@@ -79,6 +79,8 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 async function handleCatatCommand(interaction, userId, username) {
+    await interaction.deferReply({ ephemeral: true }); // Defer the reply immediately
+
     const tipe = interaction.options.getString('tipe');
     const jumlah = interaction.options.getNumber('jumlah');
     const keterangan = interaction.options.getString('keterangan');
@@ -95,7 +97,9 @@ async function handleCatatCommand(interaction, userId, username) {
     };
 
     try {
+        console.log('Sending data to N8N:', data);
         const result = await sendToN8N(WEBHOOK_URLS.catat, data);
+        console.log('Received response from N8N:', result);
         
         const embed = new EmbedBuilder()
             .setColor(tipe === 'Uang Masuk' ? '#00ff00' : '#ff0000')
@@ -108,9 +112,10 @@ async function handleCatatCommand(interaction, userId, username) {
             )
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed], ephemeral: false }); // Use editReply
     } catch (error) {
-        await interaction.reply({
+        console.error('Error in handleCatatCommand:', error);
+        await interaction.editReply({
             content: 'Gagal mencatat transaksi. Silakan coba lagi.',
             ephemeral: true,
         });
@@ -118,13 +123,17 @@ async function handleCatatCommand(interaction, userId, username) {
 }
 
 async function handleSaldoCommand(interaction, userId, username) {
+    await interaction.deferReply({ ephemeral: true }); // Defer the reply immediately
+
     const data = {
         user: userId,
         username,
     };
 
     try {
+        console.log('Sending data to N8N for Saldo:', data);
         const result = await sendToN8N(WEBHOOK_URLS.saldo, data);
+        console.log('Received response from N8N for Saldo:', result);
         
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
@@ -137,9 +146,10 @@ async function handleSaldoCommand(interaction, userId, username) {
             .setFooter({ text: `Data untuk ${username}` })
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed], ephemeral: false }); // Use editReply
     } catch (error) {
-        await interaction.reply({
+        console.error('Error in handleSaldoCommand:', error);
+        await interaction.editReply({
             content: 'Gagal mengambil data saldo. Silakan coba lagi.',
             ephemeral: true,
         });
