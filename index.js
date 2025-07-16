@@ -133,15 +133,22 @@ async function handleSaldoCommand(interaction, userId, username) {
     try {
         console.log('Sending data to N8N for Saldo:', data);
         const result = await sendToN8N(WEBHOOK_URLS.saldo, data);
-        console.log('Received response from N8N for Saldo:', result);
+        console.log('Received response from N8N for Saldo:', JSON.stringify(result));
+        
+        // Ensure values are numbers
+        const totalMasuk = Number(result.totalMasuk) || 0;
+        const totalKeluar = Number(result.totalKeluar) || 0;
+        const saldo = Number(result.saldo) || 0;
+        
+        console.log('Processed saldo values:', { totalMasuk, totalKeluar, saldo });
         
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
             .setTitle('💰 Ringkasan Keuangan')
             .addFields(
-                { name: 'Total Pemasukan', value: formatCurrency(result.totalMasuk || 0), inline: true },
-                { name: 'Total Pengeluaran', value: formatCurrency(result.totalKeluar || 0), inline: true },
-                { name: 'Saldo Akhir', value: formatCurrency(result.saldo || 0), inline: true }
+                { name: 'Total Pemasukan', value: formatCurrency(totalMasuk), inline: true },
+                { name: 'Total Pengeluaran', value: formatCurrency(totalKeluar), inline: true },
+                { name: 'Saldo Akhir', value: formatCurrency(saldo), inline: true }
             )
             .setFooter({ text: `Data untuk ${username}` })
             .setTimestamp();
@@ -170,15 +177,23 @@ async function handleRiwayatCommand(interaction, userId, username) {
     try {
         console.log('Sending data to N8N for Riwayat:', data);
         const result = await sendToN8N(WEBHOOK_URLS.riwayat, data);
-        console.log('Received response from N8N for Riwayat:', result);
+        console.log('Received response from N8N for Riwayat:', JSON.stringify(result));
         
         if (!result.transactions || result.transactions.length === 0) {
+            console.log('No transactions found for user:', userId);
             await interaction.editReply({
                 content: 'Tidak ada riwayat transaksi.',
                 ephemeral: true,
             });
             return;
         }
+
+        console.log(`Found ${result.transactions.length} transactions for user ${userId}`);
+        
+        // Log each transaction for debugging
+        result.transactions.forEach((transaction, index) => {
+            console.log(`Transaction ${index + 1}:`, JSON.stringify(transaction));
+        });
 
         const embed = new EmbedBuilder()
             .setColor('#ffa500')
@@ -188,10 +203,17 @@ async function handleRiwayatCommand(interaction, userId, username) {
 
         let description = '';
         result.transactions.forEach((transaction, index) => {
-            const icon = transaction.tipe === 'Uang Masuk' ? '💸' : '💰';
-            description += `${icon} **${transaction.keterangan}**\n`;
-            description += `${transaction.tipe} - ${formatCurrency(transaction.jumlah)}\n`;
-            description += `Kategori: ${transaction.kategori} | ${transaction.tanggal}\n\n`;
+            // Use either Tipe or tipe, whichever is available
+            const tipe = transaction.Tipe || transaction.tipe;
+            const jumlah = Number(transaction.Jumlah || transaction.jumlah) || 0;
+            const kategori = transaction.Kategori || transaction.kategori;
+            const keterangan = transaction.Keterangan || transaction.keterangan;
+            const tanggal = transaction.Tanggal || transaction.tanggal;
+            
+            const icon = tipe === 'Uang Masuk' ? '💸' : '💰';
+            description += `${icon} **${keterangan}**\n`;
+            description += `${tipe} - ${formatCurrency(jumlah)}\n`;
+            description += `Kategori: ${kategori} | ${tanggal}\n\n`;
         });
 
         embed.setDescription(description);
