@@ -206,6 +206,8 @@ async function handleRiwayatCommand(interaction, userId, username) {
 }
 
 async function handleHapusCommand(interaction, userId, username) {
+    await interaction.deferReply({ ephemeral: true }); // Defer the reply immediately
+    
     const rowNumber = interaction.options.getInteger('baris');
     
     const data = {
@@ -215,7 +217,9 @@ async function handleHapusCommand(interaction, userId, username) {
     };
 
     try {
+        console.log('Sending data to N8N for Hapus:', data);
         const result = await sendToN8N(WEBHOOK_URLS.hapus, data);
+        console.log('Received response from N8N for Hapus:', result);
         
         if (result.success) {
             const embed = new EmbedBuilder()
@@ -224,15 +228,16 @@ async function handleHapusCommand(interaction, userId, username) {
                 .setDescription(`Transaksi pada baris ${rowNumber} berhasil dihapus.`)
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [embed] });
+            await interaction.editReply({ embeds: [embed], ephemeral: false }); // Use editReply instead of reply
         } else {
-            await interaction.reply({
+            await interaction.editReply({
                 content: 'Transaksi tidak ditemukan atau gagal dihapus.',
                 ephemeral: true,
             });
         }
     } catch (error) {
-        await interaction.reply({
+        console.error('Error in handleHapusCommand:', error);
+        await interaction.editReply({
             content: 'Gagal menghapus transaksi. Silakan coba lagi.',
             ephemeral: true,
         });
