@@ -157,6 +157,8 @@ async function handleSaldoCommand(interaction, userId, username) {
 }
 
 async function handleRiwayatCommand(interaction, userId, username) {
+    await interaction.deferReply({ ephemeral: true }); // Defer the reply immediately
+    
     const limit = interaction.options.getInteger('limit') || 10;
     
     const data = {
@@ -166,10 +168,12 @@ async function handleRiwayatCommand(interaction, userId, username) {
     };
 
     try {
+        console.log('Sending data to N8N for Riwayat:', data);
         const result = await sendToN8N(WEBHOOK_URLS.riwayat, data);
+        console.log('Received response from N8N for Riwayat:', result);
         
         if (!result.transactions || result.transactions.length === 0) {
-            await interaction.reply({
+            await interaction.editReply({
                 content: 'Tidak ada riwayat transaksi.',
                 ephemeral: true,
             });
@@ -191,9 +195,10 @@ async function handleRiwayatCommand(interaction, userId, username) {
         });
 
         embed.setDescription(description);
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed], ephemeral: false }); // Use editReply instead of reply
     } catch (error) {
-        await interaction.reply({
+        console.error('Error in handleRiwayatCommand:', error);
+        await interaction.editReply({
             content: 'Gagal mengambil riwayat transaksi. Silakan coba lagi.',
             ephemeral: true,
         });
